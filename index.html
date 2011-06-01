@@ -3,31 +3,69 @@
 <div id="p1"><span class="time"></span></div>
 <div id="p2"><span class="time"></span></div>
 <script>
+"use strict";
 (function(d, w){
 
-var p1 = {
-    time: 60,
-    element: d.querySelector("#p2")
-   },
-   p2 = {
-    time: 60,
-    element: d.querySelector("#p2")
-   },
-   ,p2 = d.querySelector("#p2")
-   ,p1time
-   ,p2time
-   ,currentPlayer = "p1",
-   ,interval
-;
+var
+interval,
+lastcall,
+DEFAULT_TIME=3610000,
+e = {
+  p1: d.querySelector("#p1")
+ ,p2: d.querySelector("#p2")
+},
+s = ( // game state (to be saved in JSON)
+  w.localStorage.s && w.JSON.parse(w.localStorage.s)
+  || {
+    p1: {
+      time: DEFAULT_TIME,
+      other: "p2"
+    },
+    p2: {
+      time: DEFAULT_TIME,
+      other: "p1"
+    },
+    currentPlayer: "p1"
+}),
+format_time = function(t){ // t in milliseconds
+  var
+  hours = 0|(t / 3600000),
+  minutes = 0|(t % 3600000 / 60000),
+  seconds = t % 60000 / 1000;
 
-p1time = p2time = 120;
-
-
-
-interval = w.setInterval(function(){
+  return [
+    hours,
+    /\d\d$/.exec("00" + minutes),
+    /\d\d\.\d/.exec("00" + (seconds).toFixed(1))
+  ].slice(+!hours).join(":");
   
-   
-}, 100);
+},
+click_listener = function(e){
+  if(s.currentPlayer === this.id){
+    s.currentPlayer = s[s.currentPlayer].other;
+  }
+}
+; // end var
+
+e.p1.addEventListener('click', click_listener, false);
+e.p2.addEventListener('click', click_listener, false);
+
+setInterval(function(){
+  var now = +new Date;
+  lastcall && (s[s.currentPlayer].time -= now - lastcall);
+  lastcall = now;
+  e.p1.querySelector(".time").innerHTML = format_time(s.p1.time); 
+  e.p2.querySelector(".time").innerHTML = format_time(s.p2.time); 
+  //console.log("now", now, "lastcall", lastcall)
+},
+100);
+
+
+
+
+
+
+
 
 })(document, window);
 </script>
