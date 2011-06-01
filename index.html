@@ -1,5 +1,24 @@
 <html>
 <body>
+<style>
+.time {
+}
+body>div{
+  display: box;
+  height: 50%;
+  min-height: 160px;
+  max-width: 480px;
+  text-align: center;
+  font-size: 100px;
+}
+#p1 {
+  background: pink;
+  -webkit-transform: rotate(180deg);
+}
+#p2 { 
+  background: lightblue;
+}
+</style>
 <div id="p1"><span class="time"></span></div>
 <div id="p2"><span class="time"></span></div>
 <script>
@@ -9,7 +28,7 @@
 var
 interval,
 lastcall,
-DEFAULT_TIME=3610000,
+DEFAULT_TIME=300000,
 e = {
   p1: d.querySelector("#p1")
  ,p2: d.querySelector("#p2")
@@ -50,22 +69,22 @@ click_listener = function(e){
 e.p1.addEventListener('click', click_listener, false);
 e.p2.addEventListener('click', click_listener, false);
 
-setInterval(function(){
+interval = setInterval(function(){
   var now = +new Date;
-  lastcall && (s[s.currentPlayer].time -= now - lastcall);
+  if(lastcall){
+    s[s.currentPlayer].time = Math.max(
+      0,
+      s[s.currentPlayer].time - (now - lastcall));
+  }
   lastcall = now;
   e.p1.querySelector(".time").innerHTML = format_time(s.p1.time); 
   e.p2.querySelector(".time").innerHTML = format_time(s.p2.time); 
   //console.log("now", now, "lastcall", lastcall)
+  if(s[s.currentPlayer].time <= 0){
+    clearInterval(interval);
+  }
 },
 100);
-
-
-
-
-
-
-
 
 })(document, window);
 </script>
