@@ -66,30 +66,29 @@ var
     if(s.currentPlayer === this.id){
       s.currentPlayer = s[s.currentPlayer].other;
     }
-  }
+  },
+  tick = function(){
+    var now = +new w.Date;
+    if(lastcall){
+      s[s.currentPlayer].time = Math.max(
+        0,
+        s[s.currentPlayer].time - (now - lastcall));
+    }
+    lastcall = now;
+    e.p1.querySelector(".time").innerHTML = format_time(s.p1.time); 
+    e.p2.querySelector(".time").innerHTML = format_time(s.p2.time); 
+  
+    if(s[s.currentPlayer].time <= 0){ // currentPlayer lost
+      clearInterval(interval);
+      alert(e[s.currentPlayer] + " lost");
+    }
+  },
+  interval = setInterval(tick, 100);
 ; // end var
 
 [e.p1, e.p2].forEach(function(el){
   el.addEventListener(click_event, click_listener, false);
 });
-
-interval = setInterval(function(){
-  var now = +new w.Date;
-  if(lastcall){
-    s[s.currentPlayer].time = Math.max(
-      0,
-      s[s.currentPlayer].time - (now - lastcall));
-  }
-  lastcall = now;
-  e.p1.querySelector(".time").innerHTML = format_time(s.p1.time); 
-  e.p2.querySelector(".time").innerHTML = format_time(s.p2.time); 
-
-  if(s[s.currentPlayer].time <= 0){ // currentPlayer lost
-    clearInterval(interval);
-    alert(e[s.currentPlayer].className + " lost");
-  }
-},
-100);
 
 })(document, window);
 </script>
