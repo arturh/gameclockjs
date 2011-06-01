@@ -61,7 +61,7 @@ var
       /\d\d\.\d/.exec("00" + (seconds).toFixed(1))
     ].slice(+!hours).join(":");
   },
-  click_event = ("touchstart" in document) ? touchstart : "click",
+  click_event = ("touchstart" in document) ? "touchstart" : "click",
   click_listener = function(e){
     if(s.currentPlayer === this.id){
       s.currentPlayer = s[s.currentPlayer].other;
