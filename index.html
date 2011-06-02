@@ -15,9 +15,23 @@ body>div{
 #p1 {
   background: pink;
   -webkit-transform: rotate(180deg);
+  background-image: -webkit-gradient(
+    linear,
+    left top,
+    left bottom,
+    color-stop(0, red),
+    color-stop(1, pink)
+  );
 }
 #p2 { 
-  background: lightblue;
+  background-image: -webkit-gradient(
+    linear,
+    left top,
+    left bottom,
+    color-stop(0, blue),
+    color-stop(1, lightblue)
+  );
+ 
 }
 .lost {
   background: red;
