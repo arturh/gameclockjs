@@ -1,5 +1,51 @@
+<!DOCTYPE html>
+<!--
+
+This proof of concept aims to provide a self-contained application in
+one html file. Constraints are:
+
+ * One file
+
+ * Cacheable by caching browsers, ie under 25K.
+     (See: http://www.yuiblog.com/blog/2008/02/06/iphone-cacheability/)
+
+ * Targeting webkit based native mobile browsers, ie iOS's and Android (2.2, 2.1)
+
+ * Other browsers optionally supported only via HTML5 (no custom extensions)
+
+ * Must be enjoyable to read and easy to understand.
+
+ * Easy to understand
+
+ * Interesting techniques will be linked to explanations, for further learning
+   and great goodness
+
+ * Not using libraries to abstract us from the Javascript / DOM. Let's see how far
+   we can go with what's there already
+
+-->
 <html>
-<body>
+<head>
+
+<!-- Vanity first. If you contribute, add your name -->
+<meta name="author" content="Artur Honzawa (@_arturh)" />
+
+<!-- Mobile viewport optimized: j.mp/bplateviewport -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- TODO?: create icons. 
+
+Icons break the app in one file constraint. Can they be base64 encoded?
+Might need to break the rule ...
+
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+-->
+
+  
+<!--
+
+-->  
 <style>
 body {
   background-color: #ccc;
@@ -71,6 +117,9 @@ body > button{
   background: red;
 }
 </style>
+</head>
+
+<body>
 
 <button id="p2"><span class="time"></span></button>
 <button id="p1"><span class="time"></span></button>
@@ -78,109 +127,218 @@ body > button{
 <div class="conf"><form action="#">
 
   <select>
-    <option value="120">2:00</option>
-    <option value="180">3:00</option>
-    <option value="300">5:00</option>
-    <option value="600">10:00</option>
-    <option value="1200">20:00</option>
-    <option value="1800">30:00</option>
-    <option value="2700">45:00</option>
-    <option value="3600">1 hour</option>
-    <option value="7200">2 hours</option>
-    <option value="10800">3 hours</option>
+    <option value="120"         >2:00</option>
+    <option value="180"         >3:00</option>
+    <option value="300" selected>5:00</option>
+    <option value="600"        >10:00</option>
+    <option value="1200"       >20:00</option>
+    <option value="1800"       >30:00</option>
+    <option value="2700"       >45:00</option>
+    <option value="3600"       >1 hour</option>
+    <option value="7200"       >2 hours</option>
+    <option value="10800"      >3 hours</option>
   </select>
   
   <input type=submit value="Start"></input>
 
 </form></div>
 
-<script>
-"use strict";
-(function(d, w){
+<!--
+The script tag is located at the end of the body, so that when it runs, needed
+elements can be found in the DOM. This can also be achieved by running the
+function in a handler tied to the onDOMReady event, for example.
 
+The code is written so as to take advantage of new features in Ecmascript 5. Also,
+it is written in a functional manner. Javascript programming can incorporate
+useful functional programming constructs which make programming safer, if a
+little bit odd before you get used to it.
+-->
+<script>
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// The code is surrounded by a self executing function, that is an anonymous
+// function which is called just after being created: (function () {...}());
+//
+// It's purpose is twofold:
+//
+//   1. Avoid creating global variables: All variables declared in the scope of
+//        the function are invisible from outside the function. If you don't
+//        know why you should avoid global variables, see:
+//                                http://c2.com/cgi/wiki?GlobalVariablesAreBad
+//
+//   2. Create a closure: Even after the anonymous function has executed, its
+//        values can be referenced afterwards. This allows us to share state
+//        without creating global objects. See:
+//                     https://developer.mozilla.org/en/JavaScript/Guide/Closures
+//
+// Directives for JSLint, Javascript checker:
+/*jslint strict: true, maxerr: 1 */
+/*global document, window*/
+//
+// This function is passed the document and window objects, which are
+// external to our code. These are assigned short, one character variable
+// names for easy access: d = document, w = window
+//
+(function (d, w) { 
+
+// strict mode prevents us from using questionable "features" in javascript.
+//            See: http://ejohn.org/blog/ecmascript-5-strict-mode-json-and-more/
+//
+"use strict";
+
+////////////////////////////////////////////////////////////////////////////////
+// All variables are defined under this var statement. Under strict mode,
+// variables not declared under "var" will not create a global variable, they
+// will throw an error instead.
+//
 var
-  interval,
+
+//
+// Constants are writen in CAPS. These are not to be changed after being
+// defined. These iconstants are not language enforced, but convention-enforced.
+// 
+ 
+  // on touch devices touchstart fires earlier than click
+  // double negation (!!) coerces to boolean
+  //
+  CLICK_EVENT = !!d.ontouchstart ? "touchstart" : "click",
+
+  // Default state. This object must not be chaged so it's frozen. Frozen objects
+  // throw an exception when they are modified.
+  // State objects should be JSON serializable, so they can be stored
+  // in localStorage.
+  // 
+  DEFAULT_STATE = w.Object.freeze({ 
+      currentPlayer: "p1",   // player whose time is running
+      name: { p1: "red",     // name of each player
+              p2: "blue" },
+      time: false            // time remaining to each player. Not defined here.
+  }),
+
+  // This constant makes player switching code trivial.
+  OTHER = w.Object.freeze({
+        p1: "p2",
+        p2: "p1"
+  }),
+
+// Variables declared, but not assigned have value undefined.
+  interval, 
   lastcall,
-  DEFAULT_TIME=300000,
-  e = {
-    p1: d.querySelector("#p1")
-   ,p2: d.querySelector("#p2")
-  },
-  s0 = { // defaults
-      p1: {
-        time: DEFAULT_TIME,
-        other: "p2"
-      },
-      p2: {
-        time: DEFAULT_TIME,
-        other: "p1"
-      },
-      currentPlayer: "p1"
-  },
-  s =  w.localStorage.s && w.JSON.parse(w.localStorage.s) || s0,
-  format_time = function(t){ // t in milliseconds
+  state,
+
+// Alias for each of the players' buttons
+  p1_button = d.querySelector("#p1"),
+  p2_button = d.querySelector("#p2"),
+
+//
+// Functions.
+// Named functions are a bit counter-intuitive so we assign them to variables.
+// See: http://stackoverflow.com/questions/336859/javascript-var-functionname-function-vs-function-functionname
+//
+ 
+  // converts from remaining milliseconds to readable string
+  format_time = function (t) { 
+    // t (in ms) is decomposed in hours, minutes and seconds
     var
-    hours = 0|(t / 3600000),
-    minutes = 0|(t % 3600000 / 60000),
-    seconds = t % 60000 / 1000;
+      hours   = 0|(t / 3600000),         // 0| converts to integer
+      minutes = 0|(t % 3600000 / 60000), // % is modulus / remainder operator
+      seconds =    t % 60000 / 1000;     // seconds not converted to integer, so float
   
-    return [
-      hours,
-      /\d\d$/.exec("00" + minutes),
-      /\d\d\.\d/.exec("00" + (seconds).toFixed(1))
-    ].slice(+!hours).join(":");
+    return [                                 // The components are put in an array so that they can be
+                                             //   .joined afterwards. This avoids reassigning to a variable
+                                             //   or creating unnecessary intermediate variables.
+      hours,                                 // .substr(-n) means "return n last characters"
+      ("00" + minutes).substr(-2),           // the minutes part always two digits
+      ("00" + seconds.toFixed(1)).substr(-4) // the seconds part always 2 digits + 1 decimal
+    ].slice(+!hours)                         // skip the hours if 0
+     .join(":");                             // this creates the time string x:xx:xx.x
   },
-  click_event = ("ontouchstart" in d) ? "touchstart" : "click",
-  click_listener = function(e){
-    if(s.currentPlayer === this.id){
-      s.currentPlayer = s[s.currentPlayer].other;
+
+  // displays remaining time on the button of each player
+  display_time = function () {
+    p1_button.querySelector(".time").innerHTML = format_time(state.time.p1); 
+    p2_button.querySelector(".time").innerHTML = format_time(state.time.p2); 
+  },
+
+  // called about every 100 ms, updates and checks the remaining time 
+  tick = function () {
+    var now     = w.Date.now(),
+        elapsed = now - lastcall; 
+
+    if (lastcall) {                         // avoid first call edge-case
+      state.time[state.currentPlayer] = (   // update current player's time
+        w.Math.max(                         // expression in () allows multi-line expression
+          0,                                // avoid setting it to negative values
+          state.time[state.currentPlayer] - elapsed));
     }
-  },
-  display_time = function(){
-    e.p1.querySelector(".time").innerHTML = format_time(s.p1.time); 
-    e.p2.querySelector(".time").innerHTML = format_time(s.p2.time); 
-  },
-  tick = function(){
-    var now = +new w.Date;
-    if(lastcall){
-      s[s.currentPlayer].time = Math.max(
-        0,
-        s[s.currentPlayer].time - (now - lastcall));
-    }
+
     lastcall = now;
+
     display_time();
   
-    if(s[s.currentPlayer].time <= 0){ // currentPlayer lost
-      w.clearInterval(interval);
-      alert(s.currentPlayer + " lost");
-      d.querySelector(".conf")
-       .style.display = "block";
+    if (0|state.time[state.currentPlayer] <= 0) {           // currentPlayer lost
+      w.clearInterval(interval);                          // stop calling tick
+      w.alert(state.name[state.currentPlayer] + " lost"); // display end message
+      d.querySelector(".conf").style.display = "block";   // then display time selection again
     }
   },
-  interval,
-  start_timer = function(t){
-    s.p1.time = s.p2.time = +t * 1000;
-    interval = w.setInterval(tick, 100)
-  }
-; // end var
 
-d.querySelector(".conf form")
- .addEventListener(
-    "submit",
-    function(e){
-      var time =  d.querySelector(".conf select").value
-      start_timer(time);     
-      d.querySelector(".conf")
-       .style.display = "none";
-      e.preventDefault();
+////////////////////////////////////////////////////////////////////////////////
+// Event handlers. These functions are called when a registered event is
+// triggered. 
+// 
+
+  // Called after time selection, sets everything up.
+  start_button_handler = function (event) {
+
+      // time  for each player in ms
+      // unary + operator converts from string to number
+      //
+      var time = +d.querySelector(".conf select").value * 1000;
+
+      // parse / stringify trick to clone serializable objects. Cloned object
+      // is sealed, so that no more properties can be added. This alers us in case
+      // we make a typo in assigning to a property.
+      //
+      state = w.Object.seal(w.JSON.parse(w.JSON.stringify(DEFAULT_STATE)));
+
+      // set each player's time
+      state.time = { p1: time,
+                     p2: time };
+
+      // start calling tick every 100 ms
+      interval = w.setInterval(tick, 100);
+
+      // hide div.conf
+      d.querySelector(".conf").style.display = "none";
+
+      // prevent form submission
+      event.preventDefault(); 
     },
-    false);
 
-e.p1.addEventListener(click_event, click_listener, false);
-e.p2.addEventListener(click_event, click_listener, false);
+  // Called when the buttons are tapped / clicked
+  switch_user_handler = function (/* event, unused parameter */) { 
+    // check if the tapped button is the current player's
+    if (state.currentPlayer === this.id) {  
 
+      // if so switch players
+      state.currentPlayer = OTHER[state.currentPlayer]; 
+    }
+  }
+; // end var statement
 
-})(document, window);
+// register event handler for the start button
+d.querySelector(".conf form")
+ .addEventListener("submit", start_button_handler, false);
+
+// register event handler for the player's buttons
+p1_button.addEventListener(CLICK_EVENT, switch_user_handler, false);
+p2_button.addEventListener(CLICK_EVENT, switch_user_handler, false);
+
+// Self-executing anonymous function invocation. document and window are
+// assigned to the d and w parameters.
+}(document, window)); 
 </script>
 </body>
 </html>
