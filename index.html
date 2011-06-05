@@ -25,7 +25,6 @@ body > button{
 }
 
 #p1 {
-  -webkit-transform: rotate(180deg);
   background: pink;
   background-image: -webkit-gradient(
     linear,
@@ -38,6 +37,7 @@ body > button{
 }
 
 #p2 { 
+  -webkit-transform: rotate(180deg);
   background-image: -webkit-gradient(
     linear,
     left top,
@@ -56,12 +56,15 @@ body > button{
   background-color: green;
   background-color: rgba(0, 128, 0, .90);
 
-  position: fixed;
+  border-radius: 12px;
+  padding: 7%;
+
+  position: absolute;
   top: 10%;
   left: 10%;
-  height: 80%;
-  width: 80%;
 
+  height: 60%;
+  width: 60%;
 }
 
 .lost {
@@ -69,10 +72,27 @@ body > button{
 }
 </style>
 
-<button id="p1"><span class="time"></span></button>
 <button id="p2"><span class="time"></span></button>
+<button id="p1"><span class="time"></span></button>
 
-<div class="conf">foo bar baz</div>
+<div class="conf"><form action="#">
+
+  <select>
+    <option value="120">2:00</option>
+    <option value="180">3:00</option>
+    <option value="300">5:00</option>
+    <option value="600">10:00</option>
+    <option value="1200">20:00</option>
+    <option value="1800">30:00</option>
+    <option value="2700">45:00</option>
+    <option value="3600">1 hour</option>
+    <option value="7200">2 hours</option>
+    <option value="10800">3 hours</option>
+  </select>
+  
+  <input type=submit value="Start"></input>
+
+</form></div>
 
 <script>
 "use strict";
@@ -133,15 +153,32 @@ var
     if(s[s.currentPlayer].time <= 0){ // currentPlayer lost
       w.clearInterval(interval);
       alert(s.currentPlayer + " lost");
+      d.querySelector(".conf")
+       .style.display = "block";
     }
   },
-  interval
+  interval,
+  start_timer = function(t){
+    s.p1.time = s.p2.time = +t * 1000;
+    interval = w.setInterval(tick, 100)
+  }
 ; // end var
+
+d.querySelector(".conf form")
+ .addEventListener(
+    "submit",
+    function(e){
+      var time =  d.querySelector(".conf select").value
+      start_timer(time);     
+      d.querySelector(".conf")
+       .style.display = "none";
+      e.preventDefault();
+    },
+    false);
 
 e.p1.addEventListener(click_event, click_listener, false);
 e.p2.addEventListener(click_event, click_listener, false);
 
-interval = w.setInterval(tick, 100)
 
 })(document, window);
 </script>
